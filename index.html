@@ -1,4 +1,11 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#7FD8BE">
 <title>Sổ Việc</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A//www.w3.org/2000/svg'%20viewBox%3D'0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id%3D'lgBg'%20x1%3D'0'%20y1%3D'0'%20x2%3D'1'%20y2%3D'1'%3E%3Cstop%20offset%3D'0'%20stop-color%3D'%238DB8FF'/%3E%3Cstop%20offset%3D'.55'%20stop-color%3D'%237FD8BE'/%3E%3Cstop%20offset%3D'1'%20stop-color%3D'%23FFD479'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width%3D'64'%20height%3D'64'%20rx%3D'16'%20fill%3D'url%28%23lgBg%29'/%3E%3Ccircle%20cx%3D'13'%20cy%3D'11'%20r%3D'5.5'%20fill%3D'%23FFB547'/%3E%3Crect%20x%3D'47'%20y%3D'14'%20width%3D'9'%20height%3D'7.5'%20rx%3D'2.5'%20fill%3D'%23FF8F8A'/%3E%3Crect%20x%3D'47'%20y%3D'23.5'%20width%3D'9'%20height%3D'7.5'%20rx%3D'2.5'%20fill%3D'%23B79CFF'/%3E%3Crect%20x%3D'47'%20y%3D'33'%20width%3D'9'%20height%3D'7.5'%20rx%3D'2.5'%20fill%3D'%234F8EF0'/%3E%3Crect%20x%3D'47'%20y%3D'42.5'%20width%3D'9'%20height%3D'7.5'%20rx%3D'2.5'%20fill%3D'%232FA66A'/%3E%3Crect%20x%3D'15'%20y%3D'9'%20width%3D'35'%20height%3D'46'%20rx%3D'6.5'%20fill%3D'%23fff'/%3E%3Cpath%20d%3D'M12.5%2018h4M12.5%2029h4M12.5%2040h4M12.5%2051h4'%20stroke%3D'%231F2A44'%20stroke-width%3D'3.2'%20stroke-linecap%3D'round'/%3E%3Ccircle%20cx%3D'33'%20cy%3D'26'%20r%3D'10.5'%20fill%3D'none'%20stroke%3D'%23E4EBF2'%20stroke-width%3D'4.2'/%3E%3Ccircle%20cx%3D'33'%20cy%3D'26'%20r%3D'10.5'%20fill%3D'none'%20stroke%3D'%23FF6F6A'%20stroke-width%3D'4.2'%20stroke-linecap%3D'round'%20stroke-dasharray%3D'49.5%2066'%20transform%3D'rotate%28-90%2033%2026%29'/%3E%3Cpath%20d%3D'M28.2%2026.4l3.6%203.6%206.6-8'%20fill%3D'none'%20stroke%3D'%231F2A44'%20stroke-width%3D'3.6'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'/%3E%3Cpath%20d%3D'M33%2051v-7'%20stroke%3D'%232FA66A'%20stroke-width%3D'2.4'%20stroke-linecap%3D'round'/%3E%3Cpath%20d%3D'M33%2045c-1-4.2-4.2-5.6-8-5.2.1%204%203.2%206%208%205.2z'%20fill%3D'%234CC38A'/%3E%3Cpath%20d%3D'M33%2043c1.2-4.4%204.4-6%208.4-5.6-.2%204.2-3.4%206.4-8.4%205.6z'%20fill%3D'%232FA66A'/%3E%3C/svg%3E">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -528,6 +535,11 @@
   .strow .ctl { display: flex; gap: 2px; }
   .strow .ctl button { padding: 4px 7px; }
   .pmadd { display: flex; flex-wrap: wrap; gap: 6px; }
+  .brandrow { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .brandrow .eyebrow { margin: 0; }
+  .logo { flex: none; border-radius: 11px; }
+  .brandrow .logo { width: 46px; height: 46px; }
+  .authcard .logo { width: 64px; height: 64px; border-radius: 15px; margin-bottom: 2px; }
   /* Auth + toast (real mode) */
   #auth { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: var(--bg); overflow: auto; }
   #auth[hidden] { display: none !important; }
@@ -546,7 +558,7 @@
 <div class="app" id="app">
   <header class="top">
     <div>
-      <p class="eyebrow">Sổ Việc</p>
+      <div class="brandrow"><svg class="logo" width="34" height="34" aria-hidden="true" viewBox="0 0 64 64"><defs><linearGradient id="lgBg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8DB8FF"/><stop offset=".55" stop-color="#7FD8BE"/><stop offset="1" stop-color="#FFD479"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#lgBg)"/><circle cx="13" cy="11" r="5.5" fill="#FFB547"/><rect x="47" y="14" width="9" height="7.5" rx="2.5" fill="#FF8F8A"/><rect x="47" y="23.5" width="9" height="7.5" rx="2.5" fill="#B79CFF"/><rect x="47" y="33" width="9" height="7.5" rx="2.5" fill="#4F8EF0"/><rect x="47" y="42.5" width="9" height="7.5" rx="2.5" fill="#2FA66A"/><rect x="15" y="9" width="35" height="46" rx="6.5" fill="#fff"/><path d="M12.5 18h4M12.5 29h4M12.5 40h4M12.5 51h4" stroke="#1F2A44" stroke-width="3.2" stroke-linecap="round"/><circle cx="33" cy="26" r="10.5" fill="none" stroke="#E4EBF2" stroke-width="4.2"/><circle cx="33" cy="26" r="10.5" fill="none" stroke="#FF6F6A" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="49.5 66" transform="rotate(-90 33 26)"/><path d="M28.2 26.4l3.6 3.6 6.6-8" fill="none" stroke="#1F2A44" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 51v-7" stroke="#2FA66A" stroke-width="2.4" stroke-linecap="round"/><path d="M33 45c-1-4.2-4.2-5.6-8-5.2.1 4 3.2 6 8 5.2z" fill="#4CC38A"/><path d="M33 43c1.2-4.4 4.4-6 8.4-5.6-.2 4.2-3.4 6.4-8.4 5.6z" fill="#2FA66A"/></svg><p class="eyebrow">Sổ Việc</p></div>
       <h1 id="todayTitle"></h1>
       <p id="summary"></p>
     </div>
@@ -2590,7 +2602,7 @@
   function paintAuth(msg, ok) {
     var a = $('auth'), up = Auth.mode === 'up', fg = Auth.mode === 'fg';
     var prev = { e: $('auEmail') ? $('auEmail').value : '', p: $('auPass') ? $('auPass').value : '' };
-    a.innerHTML = '<form class="card authcard" id="auForm" autocomplete="on"><p class="brand">' + tx('SỔ VIỆC', 'SỔ VIỆC') + '</p>' +
+    a.innerHTML = '<form class="card authcard" id="auForm" autocomplete="on"><svg class="logo" width="40" height="40" aria-hidden="true" viewBox="0 0 64 64"><defs><linearGradient id="lgAu" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8DB8FF"/><stop offset=".55" stop-color="#7FD8BE"/><stop offset="1" stop-color="#FFD479"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#lgAu)"/><circle cx="13" cy="11" r="5.5" fill="#FFB547"/><rect x="47" y="14" width="9" height="7.5" rx="2.5" fill="#FF8F8A"/><rect x="47" y="23.5" width="9" height="7.5" rx="2.5" fill="#B79CFF"/><rect x="47" y="33" width="9" height="7.5" rx="2.5" fill="#4F8EF0"/><rect x="47" y="42.5" width="9" height="7.5" rx="2.5" fill="#2FA66A"/><rect x="15" y="9" width="35" height="46" rx="6.5" fill="#fff"/><path d="M12.5 18h4M12.5 29h4M12.5 40h4M12.5 51h4" stroke="#1F2A44" stroke-width="3.2" stroke-linecap="round"/><circle cx="33" cy="26" r="10.5" fill="none" stroke="#E4EBF2" stroke-width="4.2"/><circle cx="33" cy="26" r="10.5" fill="none" stroke="#FF6F6A" stroke-width="4.2" stroke-linecap="round" stroke-dasharray="49.5 66" transform="rotate(-90 33 26)"/><path d="M28.2 26.4l3.6 3.6 6.6-8" fill="none" stroke="#1F2A44" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M33 51v-7" stroke="#2FA66A" stroke-width="2.4" stroke-linecap="round"/><path d="M33 45c-1-4.2-4.2-5.6-8-5.2.1 4 3.2 6 8 5.2z" fill="#4CC38A"/><path d="M33 43c1.2-4.4 4.4-6 8.4-5.6-.2 4.2-3.4 6.4-8.4 5.6z" fill="#2FA66A"/></svg><p class="brand">' + tx('SỔ VIỆC', 'SỔ VIỆC') + '</p>' +
       '<h1>' + (fg ? tx('Quên mật khẩu', 'Reset password') : up ? tx('Tạo tài khoản', 'Create account') : tx('Đăng nhập', 'Sign in')) + '</h1>' +
       '<p class="sub">' + (fg ? tx('Nhập email, mình sẽ gửi liên kết đặt lại mật khẩu.', 'Enter your email and we will send a reset link.') : tx('Dữ liệu của bạn được lưu theo tài khoản và đồng bộ giữa các thiết bị.', 'Your data is saved to your account and synced across devices.')) + '</p>' +
       '<label class="fl">Email<input type="email" id="auEmail" name="email" autocomplete="email" required value="' + esc(prev.e) + '"></label>' +
