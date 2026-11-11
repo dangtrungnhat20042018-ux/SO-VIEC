@@ -641,6 +641,7 @@
 
     <section id="vSettings" class="stack" hidden aria-label="Cài đặt">
       <div id="acctCard"></div>
+      <div id="tgCard"></div>
       <div class="card sec">
         <h3>Ngôn ngữ</h3>
         <p class="sub">Chọn ngôn ngữ hiển thị cho toàn bộ giao diện. Tên việc, thư mục và ghi chú bạn tự nhập sẽ không bị dịch.</p>
@@ -2576,7 +2577,7 @@
       if (row) { Auth.rev = row.rev; applyDoc(row.data || starterDoc()); return; }
       var d = starterDoc(); applyDoc(d); Auth.rev = 1;
       return sbData('/rest/v1/app_state', { method: 'POST', prefer: 'return=minimal', body: { data: d, rev: 1 } });
-    }).then(function () { Auth.ready = true; Auth.last = JSON.stringify(getDoc()); setStat('saved'); showAuth(false); renderAll(); });
+    }).then(function () { Auth.ready = true; Auth.last = JSON.stringify(getDoc()); setStat('saved'); showAuth(false); renderAll(); tgLoad(); });
   }
   function isolate(on) { Array.prototype.forEach.call(document.body.children, function (c) { if (c.id !== 'auth' && c.tagName !== 'SCRIPT') { if (on) c.setAttribute('inert', ''); else c.removeAttribute('inert'); } }); }
   function showAuth(on, msg, ok) {
@@ -2631,17 +2632,62 @@
       if (v === 'lang') { setLang(lang === 'en' ? 'vi' : 'en', true); paintAuth(); return; }
       Auth.mode = v; paintAuth(); return;
     }
+    var tb = e.target.closest('[data-tg]');
+    if (tb) { var tv = tb.getAttribute('data-tg'); if (tv === 'on') tgConnect(); else if (tv === 'off') tgDisconnect(); else tgLoad(); return; }
     if (e.target.closest('[data-logout]')) {
       flush().then(function () { sbSaveSess(null); location.reload(); });
     }
   });
+
+  /* ---------- Telegram link ---------- */
+  var TG_BOT = 'Taskremindernote_bot';
+  function tgRand() { var a = new Uint8Array(9), c = 'abcdefghjkmnpqrstuvwxyz23456789', s = ''; (window.crypto || window.msCrypto).getRandomValues(a); for (var i = 0; i < a.length; i++) s += c[a[i] % c.length]; return s; }
+  function tgLoad(quiet) {
+    return sbData('/rest/v1/tg_links?select=code,chat_id&user_id=eq.' + Auth.sess.uid).then(function (r) {
+      var n = (r && r[0]) || {}, was = Auth.tg && Auth.tg.chat_id;
+      Auth.tg = n; Auth.tgErr = false;
+      if (!quiet || (!!was !== !!n.chat_id)) renderTg();
+    }).catch(function () { Auth.tgErr = true; renderTg(); });
+  }
+  function tgPoll() {
+    clearInterval(Auth.tgPoll); var n = 0;
+    Auth.tgPoll = setInterval(function () {
+      n++; if (n > 100 || !Auth.tg || Auth.tg.chat_id || !Auth.tg.code) { clearInterval(Auth.tgPoll); return; }
+      tgLoad(true);
+    }, 3000);
+  }
+  function tgConnect() {
+    var code = tgRand(), tz = 'Asia/Ho_Chi_Minh'; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch (err) {}
+    return sbData('/rest/v1/tg_links?on_conflict=user_id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { user_id: Auth.sess.uid, code: code, chat_id: null, tz: tz, lang: lang } })
+      .then(function () { Auth.tg = { code: code, chat_id: null }; Auth.tgErr = false; renderTg(); tgPoll(); })
+      .catch(function () { Auth.tgErr = true; renderTg(); });
+  }
+  function tgDisconnect() {
+    return sbData('/rest/v1/tg_links?user_id=eq.' + Auth.sess.uid, { method: 'PATCH', prefer: 'return=minimal', body: { chat_id: null, code: null } })
+      .then(function () { Auth.tg = {}; renderTg(); }).catch(function () { Auth.tgErr = true; renderTg(); });
+  }
+  function renderTg() {
+    var c = $('tgCard'); if (!c || !Auth.sess) return;
+    var h = '<div class="card sec"><h3>' + tx('Thông báo qua Telegram', 'Telegram notifications') + '</h3>', tg = Auth.tg;
+    if (!TG_BOT) h += '<p class="sub">' + tx('Chưa cấu hình tên bot Telegram trong ứng dụng.', 'The Telegram bot name is not set up in the app yet.') + '</p>';
+    else if (Auth.tgErr) h += '<p class="sub">' + tx('Chưa tải được trạng thái Telegram. Hãy chắc chắn đã chạy file telegram.sql trong Supabase.', 'Could not load Telegram status. Make sure telegram.sql has been run in Supabase.') + '</p><div class="actions"><button type="button" class="btn ghost sm" data-tg="reload">' + tx('Thử lại', 'Retry') + '</button></div>';
+    else if (!tg) h += '<p class="sub">' + tx('Đang tải…', 'Loading…') + '</p>';
+    else if (tg.chat_id) h += '<p class="sub">✅ ' + tx('Đã kết nối Telegram.', 'Telegram is connected.') + '</p>' +
+      '<ul class="sub tglist"><li>' + tx('Việc có giờ: nhắc trước giờ bạn đã chọn.', 'Timed tasks: a reminder before the time you chose.') + '</li><li>' + tx('Mỗi sáng 8:00: danh sách việc hạn hôm nay, quá hạn và chưa có ngày, nhắc lại mỗi ngày đến khi xong.', 'Every morning at 8:00: tasks due today, overdue and undated, repeated daily until done.') + '</li><li>' + tx('Thói quen: nhắc đúng giờ (thói quen theo giờ nhắc trước 10 phút), bỏ qua nếu đã ghi hôm nay.', 'Habits: reminded at the set time (timed habits 10 minutes before), skipped if already logged today.') + '</li></ul>' +
+      '<div class="actions"><button type="button" class="btn ghost sm" data-tg="off">' + tx('Ngắt kết nối', 'Disconnect') + '</button></div>';
+    else if (tg.code) h += '<ol class="sub tglist"><li>' + tx('Bấm nút bên dưới để mở Telegram.', 'Press the button below to open Telegram.') + '</li><li>' + tx('Trong Telegram bấm Start (Bắt đầu).', 'In Telegram, press Start.') + '</li><li>' + tx('Quay lại đây, trạng thái sẽ tự chuyển sang đã kết nối.', 'Come back here, the status will switch to connected by itself.') + '</li></ol>' +
+      '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="https://t.me/' + esc(TG_BOT) + '?start=' + esc(tg.code) + '">' + tx('Mở Telegram', 'Open Telegram') + '</a><button type="button" class="btn ghost sm" data-tg="on">' + tx('Tạo mã mới', 'New code') + '</button></div>';
+    else h += '<p class="sub">' + tx('Nhận nhắc việc và thói quen trên điện thoại qua Telegram.', 'Get task and habit reminders on your phone through Telegram.') + '</p><div class="actions"><button type="button" class="btn" data-tg="on">' + tx('Kết nối Telegram', 'Connect Telegram') + '</button></div>';
+    c.innerHTML = h + '</div>';
+  }
+
   function renderAccount() {
     var c = $('acctCard'); if (!c || !Auth.sess) return;
     c.innerHTML = '<div class="card sec"><h3>' + tx('Tài khoản', 'Account') + '</h3><p class="sub">' + tx('Đang đăng nhập bằng ', 'Signed in as ') + '<b data-notr>' + esc(Auth.sess.email) + '</b></p>' +
       '<p class="sub" id="acctStat">' + statText() + '</p><div class="actions"><button type="button" class="btn ghost sm" data-logout="1">' + tx('Đăng xuất', 'Sign out') + '</button></div></div>';
   }
   var _renderAll = renderAll;
-  renderAll = function () { _renderAll(); if (Auth.ready) { renderAccount(); setStat(Auth.stat); touch(); } };
+  renderAll = function () { _renderAll(); if (Auth.ready) { renderAccount(); renderTg(); setStat(Auth.stat); touch(); } };
   function boot() {
     var s = sbLoadSess();
     if (!s) { showAuth(true); return; }
