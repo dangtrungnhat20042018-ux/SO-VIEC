@@ -540,6 +540,18 @@
   .logo { flex: none; border-radius: 11px; }
   .brandrow .logo { width: 46px; height: 46px; }
   .authcard .logo { width: 64px; height: 64px; border-radius: 15px; margin-bottom: 2px; }
+  /* folder colors, task stripe, day start */
+  .fpal { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; padding: 2px 8px 8px calc(min(var(--d, 0), 8) * 14px + 30px); }
+  .fpal button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: var(--sc); cursor: pointer; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 16%, transparent); }
+  .fpal button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-ink); }
+  .fpal button.inh { width: auto; height: auto; padding: 4px 10px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--ink-2); }
+  .task { position: relative; padding-left: 18px; }
+  .task::before { content: ''; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 4px; border-radius: 4px; background: var(--tc, transparent); }
+  .task.done::before { opacity: .35; }
+  .dsrow { display: flex; align-items: center; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+  .dsrow input, .dsd input { padding: 6px 8px; font-family: var(--f-mono); }
+  .dsgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
+  .dsd { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink-3); }
   /* Auth + toast (real mode) */
   #auth { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: var(--bg); overflow: auto; }
   #auth[hidden] { display: none !important; }
@@ -654,6 +666,7 @@
     <section id="vSettings" class="stack" hidden aria-label="Cài đặt">
       <div id="acctCard"></div>
       <div id="tgCard"></div>
+      <div id="dsCard"></div>
       <div class="card sec">
         <h3>Ngôn ngữ</h3>
         <p class="sub">Chọn ngôn ngữ hiển thị cho toàn bộ giao diện. Tên việc, thư mục và ghi chú bạn tự nhập sẽ không bị dịch.</p>
@@ -737,7 +750,7 @@
   function kids(id) { return folders.filter(function (f) { return f.parent === id; }); }
   function subtree(id) { var out = [id]; kids(id).forEach(function (k) { out = out.concat(subtree(k.id)); }); return out; }
   function rootOf(id) { var f = fById(id); while (f && f.parent !== null) f = fById(f.parent); return f; }
-  function fColor(id) { if (id == null) return 'var(--ink-3)'; var r = rootOf(id); return r ? r.color : 'var(--ink-3)'; }
+  function fColor(id) { if (id == null) return 'var(--ink-3)'; var f = fById(id); while (f) { if (f.color) return f.color; f = f.parent === null ? null : fById(f.parent); } return 'var(--ink-3)'; }
   function fPath(id) { var n = [], f = fById(id); while (f) { n.unshift(f.name); f = f.parent === null ? null : fById(f.parent); } return n; }
   function fName(id) { var f = id == null ? null : fById(id); return f ? f.name : 'Không thư mục'; }
   function rootIdOfFolder(id) { if (id == null) return null; var r = rootOf(id); return r ? r.id : null; }
@@ -746,7 +759,7 @@
   var seq = 1, sseq = 1;
   function subs(titles, doneCount) { return titles.map(function (t, i) { return { id: sseq++, title: t, done: i < (doneCount || 0) }; }); }
   function newTask(o) {
-    return { id: seq++, title: o.title, folder: o.folder === undefined ? null : o.folder, date: o.date || null, time: o.time || '', prio: o.prio || 'none', done: false, doneDate: null, repeat: '', rdays: null, rweeks: 1, rmdays: null, rmonths: 1, color: null, note: '', created: o.created || todayK, pct: 0, subs: o.subs || [], lead: 15, nag: true };
+    return { id: seq++, title: o.title, folder: o.folder === undefined ? null : o.folder, date: o.date || null, time: o.time || '', prio: o.prio || 'none', done: false, doneDate: null, repeat: '', rdays: null, rweeks: 1, rmdays: null, rmonths: 1, color: null, ranchor: null, nextId: null, note: '', created: o.created || todayK, pct: 0, subs: o.subs || [], lead: 15, nag: true };
   }
   function T(title, folder, off, time, prio, extra) {
     var t = newTask({ title: title, folder: folder, date: off === null ? null : plus(off), time: time, prio: prio });
@@ -921,6 +934,12 @@
   function folderForm(depth, value) {
     return '<form class="fform" id="fForm" style="--d:' + depth + '"><input type="text" id="fInput" maxlength="60" value="' + esc(value) + '" aria-label="Tên thư mục" placeholder="Tên thư mục" required><button class="btn sm" type="submit">Lưu</button><button type="button" class="btn ghost sm" data-fcancel="1">Hủy</button></form>';
   }
+  function folderPalette(f, depth) {
+    var h = '<div class="fpal" style="--d:' + depth + '" role="group" aria-label="' + esc(tx('Màu thư mục', 'Folder color')) + '">';
+    if (f.parent !== null) h += '<button type="button" class="inh" data-fcolor="' + f.id + '|" aria-pressed="' + !f.color + '">' + tx('Theo thư mục mẹ', 'Same as parent') + '</button>';
+    TCOLORS.forEach(function (c) { h += '<button type="button" style="--sc:' + c[0] + '" data-fcolor="' + f.id + '|' + c[0] + '" aria-pressed="' + (f.color === c[0]) + '" title="' + esc(tx(c[1], c[2])) + '" aria-label="' + esc(tx(c[1], c[2])) + '"></button>'; });
+    return h + '</div>';
+  }
   function treeRows(parentId, depth) {
     var html = '';
     kids(parentId).forEach(function (f) {
@@ -937,7 +956,7 @@
         if (state.fdel === f.id) {
           html += '<div class="fdel" style="--d:' + depth + '"><span>Xóa thư mục này? Các việc bên trong chuyển lên thư mục cha.</span><button type="button" class="mini danger" data-fdelok="' + f.id + '">Xóa</button><button type="button" class="mini" data-fdelno="1">Giữ lại</button></div>';
         } else {
-          html += '<div class="tact" style="--d:' + depth + '"><button type="button" class="mini" data-fadd="' + f.id + '">+ Thư mục con</button><button type="button" class="mini" data-frename="' + f.id + '">Đổi tên</button><button type="button" class="mini danger" data-fdel="' + f.id + '">Xóa</button></div>';
+          html += '<div class="tact" style="--d:' + depth + '"><button type="button" class="mini" data-fadd="' + f.id + '">+ Thư mục con</button><button type="button" class="mini" data-frename="' + f.id + '">Đổi tên</button><button type="button" class="mini" data-fcolor-open="' + f.id + '" aria-expanded="' + (state.fcol === f.id) + '">Đổi màu</button><button type="button" class="mini danger" data-fdel="' + f.id + '">Xóa</button></div>' + (state.fcol === f.id ? folderPalette(f, depth) : '');
         }
       }
       if (state.fedit && state.fedit.mode === 'add' && state.fedit.id === f.id) html += folderForm(depth + 1, '');
@@ -1047,6 +1066,28 @@
       '<div class="colrow"><span>' + tx('Màu của việc', 'Task color') + '</span>' + colorPicker('add', null) + '</div></div>';
   }
 
+  /* ---------- Start of day ---------- */
+  var dayStart = { def: '08:00', wd: {}, today: null };
+  function startOf(k) {
+    if (dayStart.today && dayStart.today.date === k && dayStart.today.time) return dayStart.today.time;
+    return dayStart.wd[parse(k).getDay()] || dayStart.def || '08:00';
+  }
+  function renderDayStart() {
+    var c = $('dsCard'); if (!c) return;
+    var en = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    var cells = WK_ORDER.map(function (d) {
+      var nm = d === 0 ? tx('CN', 'Sun') : tx('T' + (d + 1), en[d]);
+      return '<label class="dsd"><span>' + nm + '</span><input type="time" data-dswd="' + d + '" value="' + (dayStart.wd[d] || '') + '" aria-label="' + esc(nm) + '"></label>';
+    }).join('');
+    var td = dayStart.today && dayStart.today.date === todayK ? dayStart.today.time : '';
+    c.innerHTML = '<div class="card sec"><h3>' + tx('Giờ bắt đầu ngày', 'Start of day') + '</h3>' +
+      '<p class="sub">' + tx('Giờ này dùng cho tin nhắc tổng hợp buổi sáng và các việc chỉ có ngày mà không có giờ. Bạn có thể đặt giờ khác cho từng thứ, hoặc riêng cho hôm nay.', 'Used for the morning summary and for tasks that have a date but no time. You can set a different time per weekday, or only for today.') + '</p>' +
+      '<label class="dsrow">' + tx('Giờ mặc định', 'Default time') + '<input type="time" id="dsDef" value="' + dayStart.def + '"></label>' +
+      '<p class="label">' + tx('Giờ khác cho từng thứ (để trống = dùng giờ mặc định)', 'Different time per weekday (empty = default)') + '</p><div class="dsgrid">' + cells + '</div>' +
+      '<label class="dsrow">' + tx('Chỉ riêng hôm nay', 'Today only') + '<input type="time" id="dsToday" value="' + td + '"></label>' +
+      '<p class="pmhint">' + tx('Giờ riêng của hôm nay tự hết hiệu lực sang ngày mai. Hôm nay ngày của bạn bắt đầu lúc ', 'Today\'s own time expires tomorrow. Your day starts at ') + '<b>' + startOf(todayK) + '</b></p></div>';
+  }
+
   /* ---------- Tasks view ---------- */
   function row(t) {
     var meta = '<span class="dot" style="background:' + tcolor(t) + '"></span><span>' + esc(fName(t.folder)) + '</span>';
@@ -1056,7 +1097,7 @@
     if (!t.done && (p > 0 || t.subs.length)) meta += '<span class="mp"><i style="width:' + p + '%"></i></span><span class="t">' + p + '%</span>' + (t.subs.length ? '<span>' + subDone(t) + '/' + t.subs.length + ' việc con</span>' : '');
     var nagging = !t.done && t.nag && !t.date && t.created < todayK;
     var due = t.date ? '<span class="due' + (isLate(t) ? ' late' : '') + '">' + dayLabel(t.date) + '</span>' : (nagging ? '<span class="due nag">Nhắc hằng ngày</span>' : '<span class="due"></span>');
-    return '<li class="task' + (t.done ? ' done' : '') + (state.sel === t.id ? ' sel' : '') + '" data-id="' + t.id + '">' +
+    return '<li class="task' + (t.done ? ' done' : '') + (state.sel === t.id ? ' sel' : '') + '" data-id="' + t.id + '" style="--tc:' + tcolor(t) + '">' +
       '<button type="button" class="chk p-' + t.prio + '" data-toggle="' + t.id + '" role="checkbox" aria-checked="' + t.done + '" aria-label="Hoàn thành: ' + esc(t.title) + '">' + CHECK + '</button>' +
       '<button type="button" class="tbody" data-select="' + t.id + '"><span class="ttl">' + esc(t.title) + '</span><span class="meta">' + meta + '</span></button>' +
       due + '</li>';
@@ -1162,21 +1203,68 @@
     if (t.subs.length) return Math.round(subDone(t) / t.subs.length * 100);
     return t.pct || 0;
   }
+  /* ---------- Repeating tasks: finishing one creates the next occurrence ---------- */
+  function mondayOf(k) { return addDays(k, -((parse(k).getDay() + 6) % 7)); }
+  function weeksBetween(a, b) { return Math.round((parse(b) - parse(a)) / (7 * 864e5)); }
+  function monthsBetween(a, b) { var x = parse(a), y = parse(b); return (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); }
+  function dimOf(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); }
+  function repSpec(t) {
+    if (t.rdays && t.rdays.length) return { k: 'wk', days: t.rdays, n: t.rweeks || 1 };
+    if (t.rmdays && t.rmdays.length) return { k: 'mo', days: t.rmdays, n: t.rmonths || 1 };
+    var r = t.repeat;
+    return r === 'Hằng ngày' ? { k: 'day' } : r === 'Hằng tuần' ? { k: 'week' } : r === 'Hằng tháng' ? { k: 'month' } : r === 'Thứ 2 đến thứ 6' ? { k: 'wkd' } : null;
+  }
+  function occursOn(sp, k, anchor) {
+    var d = parse(k), last = dimOf(d);
+    if (sp.k === 'day') return true;
+    if (sp.k === 'wkd') return d.getDay() >= 1 && d.getDay() <= 5;
+    if (sp.k === 'week') return d.getDay() === parse(anchor).getDay();
+    if (sp.k === 'month') return d.getDate() === Math.min(parse(anchor).getDate(), last);
+    if (sp.k === 'wk') return sp.days.indexOf(d.getDay()) >= 0 && weeksBetween(mondayOf(anchor), mondayOf(k)) % sp.n === 0;
+    if (monthsBetween(anchor, k) % sp.n !== 0) return false;
+    return sp.days.some(function (x) { return (x === 0 ? last : Math.min(x, last)) === d.getDate(); });
+  }
+  function nextOccur(sp, afterK, anchor) { for (var i = 1; i <= 800; i++) { var k = addDays(afterK, i); if (occursOn(sp, k, anchor)) return k; } return null; }
+  function spawnNext(t) {
+    var sp = repSpec(t); if (!sp || t.nextId) return;
+    var dd = t.doneDate || todayK, base = t.date && t.date > dd ? t.date : dd, anchor = t.ranchor || t.date || base;
+    var k = nextOccur(sp, base, anchor), g = 0;
+    while (k && k < todayK && g++ < 800) k = nextOccur(sp, k, anchor);
+    if (!k) return;
+    var n = newTask({ title: t.title, folder: t.folder, date: k, time: t.time, prio: t.prio });
+    ['note', 'color', 'repeat', 'rdays', 'rweeks', 'rmdays', 'rmonths', 'lead', 'nag'].forEach(function (f) { n[f] = t[f]; });
+    n.ranchor = anchor; n.subs = t.subs.map(function (x) { return { id: sseq++, title: x.title, done: false }; });
+    tasks.push(n); t.nextId = n.id;
+  }
+  function unspawn(t) {
+    if (!t.nextId) return;
+    var n = tasks.filter(function (x) { return x.id === t.nextId; })[0];
+    if (n && !n.done && !(n.pct > 0) && !n.subs.some(function (x) { return x.done; })) tasks = tasks.filter(function (x) { return x.id !== n.id; });
+    t.nextId = null;
+  }
+  function migrateRepeats() {
+    var from = plus(-45);
+    tasks.slice().forEach(function (t) {
+      if (!t.done || t.nextId || !repSpec(t) || (t.doneDate || '') < from) return;
+      var dup = tasks.some(function (o) { return !o.done && o.id !== t.id && o.title === t.title && o.folder === t.folder && (o.repeat || '') === (t.repeat || ''); });
+      if (!dup) spawnNext(t);
+    });
+  }
   function syncDone(t) {
     if (!t.subs.length) return;
     var all = subDone(t) === t.subs.length;
-    if (all && !t.done) { t.done = true; t.doneDate = todayK; }
-    else if (!all && t.done) { t.done = false; t.doneDate = null; }
+    if (all && !t.done) { t.done = true; t.doneDate = todayK; spawnNext(t); }
+    else if (!all && t.done) { t.done = false; t.doneDate = null; unspawn(t); }
   }
   function setPct(t, v) {
     v = Math.max(0, Math.min(100, Math.round(v) || 0)); t.pct = v;
-    if (v === 100 && !t.done) { t.done = true; t.doneDate = todayK; }
-    else if (v < 100 && t.done) { t.done = false; t.doneDate = null; }
+    if (v === 100 && !t.done) { t.done = true; t.doneDate = todayK; spawnNext(t); }
+    else if (v < 100 && t.done) { t.done = false; t.doneDate = null; unspawn(t); }
   }
   function toggleTask(t) {
-    if (!t.done) { t.done = true; t.doneDate = todayK; t.pct = 100; t.subs.forEach(function (s) { s.done = true; }); }
+    if (!t.done) { t.done = true; t.doneDate = todayK; t.pct = 100; t.subs.forEach(function (s) { s.done = true; }); spawnNext(t); }
     else {
-      t.done = false; t.doneDate = null;
+      t.done = false; t.doneDate = null; unspawn(t);
       if (t.subs.length) t.subs[t.subs.length - 1].done = false; else if (t.pct === 100) t.pct = 90;
     }
   }
@@ -1191,7 +1279,7 @@
     return html;
   }
   function remindRows(t) {
-    var base = t.time || '08:00', first, again;
+    var base = t.time || startOf(t.date && t.date >= todayK ? t.date : todayK), first, again;
     if (t.date) {
       var m = toMin(base) - (t.time ? t.lead : 0); if (m < 0) m += 1440;
       first = '<span class="t">' + hhmm(m) + '</span>' + (t.time ? (t.lead ? ' (trước ' + t.lead + ' phút)' : ' (đúng giờ)') : ' sáng cùng ngày');
@@ -1204,7 +1292,7 @@
   }
   function previewHtml(t) {
     if (t.done) return '';
-    var base = t.time || '08:00', p = progOf(t), line, stamp, cap;
+    var base = t.time || startOf(t.date && t.date >= todayK ? t.date : todayK), p = progOf(t), line, stamp, cap;
     if (t.date && t.date >= todayK) {
       var m = toMin(base) - (t.time ? t.lead : 0); if (m < 0) m += 1440;
       stamp = hhmm(m);
@@ -2036,6 +2124,12 @@
       if (a !== 'root') delete state.collapsed[+a];
       renderTree(); return;
     }
+    if ((el = e.target.closest('[data-fcolor-open]'))) { var fo = +el.getAttribute('data-fcolor-open'); state.fcol = state.fcol === fo ? null : fo; renderTree(); return; }
+    if ((el = e.target.closest('[data-fcolor]'))) {
+      var fc = el.getAttribute('data-fcolor').split('|'), ff = fById(+fc[0]);
+      if (ff) ff.color = fc[1] || null;
+      state.fcol = null; renderAll(); return;
+    }
     if ((el = e.target.closest('[data-frename]'))) { state.fedit = { mode: 'rename', id: +el.getAttribute('data-frename') }; state.ffocus = true; renderTree(); return; }
     if ((el = e.target.closest('[data-fcancel]'))) { state.fedit = null; renderTree(); return; }
     if ((el = e.target.closest('[data-fdel]'))) { state.fdel = +el.getAttribute('data-fdel'); state.fedit = null; renderTree(); return; }
@@ -2164,6 +2258,9 @@
       }
       return;
     }
+    if (t.id === 'dsDef') { if (t.value) dayStart.def = t.value; renderAll(); return; }
+    if (t.hasAttribute && t.hasAttribute('data-dswd')) { var dsd = t.getAttribute('data-dswd'); if (t.value) dayStart.wd[dsd] = t.value; else delete dayStart.wd[dsd]; renderAll(); return; }
+    if (t.id === 'dsToday') { dayStart.today = t.value ? { date: todayK, time: t.value } : null; renderAll(); return; }
     if (t.id === 'pctInput') { var pt = taskById(state.sel); if (pt && !pt.subs.length) { setPct(pt, +t.value); renderAll(); } return; }
     if (/^pm(Work|Short|Long|Sets|Every)$/.test(t.id)) {
       var c = timer.cfg;
@@ -2211,7 +2308,7 @@
       e.preventDefault();
       var et = taskById(state.sel), nt = $('edTitle').value.trim();
       if (!et || !nt) return;
-      et.title = nt; et.date = $('edDate').value || null; et.time = $('edTime').value || '';
+      et.title = nt; if (($('edDate').value || null) !== et.date) et.ranchor = null; et.date = $('edDate').value || null; et.time = $('edTime').value || '';
       et.folder = $('edFolder').value ? +$('edFolder').value : null; et.prio = $('edPrio').value;
       var er = readRep('ed'); et.repeat = er.repeat; et.rdays = er.rdays; et.rweeks = er.rweeks; et.rmdays = er.rmdays; et.rmonths = er.rmonths; et.color = readColor('ed'); et.lead = +$('edLead').value; et.nag = $('edNag').checked; et.note = $('edNote').value.trim();
       state.tedit = null;
@@ -2387,6 +2484,8 @@
     "Tập trung theo giờ": "Focus by hour", "Tập trung theo ngày": "Focus by day", "Tập trung theo tháng": "Focus by month", "Tập trung theo thư mục": "Focus by folder",
     "Chưa có dữ liệu trong kỳ này.": "No data in this period yet.",
     "Thói quen trong kỳ": "Habits in this period",
+    "Đổi màu": "Change color",
+    "Theo thư mục": "Follow folder",
     "Lặp lại và màu": "Repeat and color",
     "Nhận xét nhanh": "Quick insights",
     "Chưa đủ dữ liệu trong kỳ này để nhận xét.": "Not enough data in this period for insights.",
@@ -2480,6 +2579,7 @@
     if (lang === 'en') quiet(function () { translateTree(document.body); });
   }
   function renderSettings() {
+    renderDayStart();
     Array.prototype.forEach.call(document.querySelectorAll('[data-lang]'), function (b) { b.setAttribute('aria-checked', b.getAttribute('data-lang') === lang); });
   }
 
@@ -2524,11 +2624,11 @@
   function getDoc() {
     var acc = ''; try { acc = localStorage.getItem('soviec-accent') || ''; } catch (err) {}
     return { v: 1, folders: folders, tasks: tasks, habits: habits, archive: archive, sessions: sessions, moods: moods,
-      seq: { f: fseq, t: seq, s: sseq, h: hseq }, prefs: { lang: lang, accent: acc, focus: timer.cfg } };
+      seq: { f: fseq, t: seq, s: sseq, h: hseq }, migRep: true, prefs: { lang: lang, accent: acc, focus: timer.cfg, dayStart: dayStart } };
   }
   function starterDoc() {
     var names = ['Công việc', 'Học tập', 'Cá nhân', 'Sức khỏe'];
-    return { v: 1, folders: names.map(function (n, i) { return { id: i + 1, name: n, parent: null, color: ROOT_COLORS[i] }; }), tasks: [], habits: [], archive: [], sessions: [], moods: {}, seq: { f: 5, t: 1, s: 1, h: 1 }, prefs: {} };
+    return { v: 1, migRep: true, folders: names.map(function (n, i) { return { id: i + 1, name: n, parent: null, color: ROOT_COLORS[i] }; }), tasks: [], habits: [], archive: [], sessions: [], moods: {}, seq: { f: 5, t: 1, s: 1, h: 1 }, prefs: {} };
   }
   function applyDoc(d) {
     folders = d.folders || []; tasks = d.tasks || []; habits = d.habits || []; archive = d.archive || []; sessions = d.sessions || []; moods = d.moods || {};
@@ -2540,6 +2640,12 @@
     state.sel = null; state.folder = 'all'; state.fedit = null; state.fdel = null; state.tedit = null; state.tdel = null; state.hedit = null; state.hdel = null; state.hlog = null; state.moodOpen = false;
     timer.task = null; timer.habit = null;
     var p = d.prefs || {};
+    var ds = p.dayStart;
+    dayStart = { def: '08:00', wd: {}, today: null };
+    if (ds && /^\d\d:\d\d$/.test(ds.def || '')) dayStart.def = ds.def;
+    if (ds && ds.wd) for (var wk in ds.wd) if (/^[0-6]$/.test(wk) && /^\d\d:\d\d$/.test(ds.wd[wk])) dayStart.wd[wk] = ds.wd[wk];
+    if (ds && ds.today && ds.today.date === todayK && /^\d\d:\d\d$/.test(ds.today.time || '')) dayStart.today = ds.today;
+    if (!d.migRep) migrateRepeats();
     if (p.focus && Array.isArray(p.focus.steps) && p.focus.steps.length && (p.focus.type === 'std' || p.focus.type === 'custom')) { timer.cfg = p.focus; cfgSave(); }
     rebuildPlan(!timer.running);
     if (['#7FD8BE', '#8DB8FF', '#FF9E9A', '#FFD479', '#B79CFF'].indexOf(p.accent) >= 0) setAccent(p.accent, true);
@@ -2582,14 +2688,15 @@
     if (document.visibilityState !== 'visible' || !Auth.ready || Auth.dirty || Auth.saving) return;
     remoteLatest().then(function (row) { if (row && row.rev > Auth.rev && !Auth.dirty && !Auth.saving) takeRemote(row, tx('Đã tải dữ liệu mới nhất từ tài khoản.', 'Loaded the latest data from your account.')); }).catch(function () {});
   });
+  setInterval(function () { if (Auth.ready && !Auth.dirty && !Auth.saving && key(new Date()) !== todayK) location.reload(); }, 60000);
   window.addEventListener('beforeunload', function (e) { if (Auth.ready && (Auth.dirty || Auth.saving)) { e.preventDefault(); e.returnValue = ''; } });
 
   function loadRemote() {
     return remoteLatest().then(function (row) {
-      if (row) { Auth.rev = row.rev; applyDoc(row.data || starterDoc()); return; }
+      if (row) { Auth.rev = row.rev; applyDoc(row.data || starterDoc()); Auth.fresh = !(row.data && row.data.migRep); return; }
       var d = starterDoc(); applyDoc(d); Auth.rev = 1;
       return sbData('/rest/v1/app_state', { method: 'POST', prefer: 'return=minimal', body: { data: d, rev: 1 } });
-    }).then(function () { Auth.ready = true; Auth.last = JSON.stringify(getDoc()); setStat('saved'); showAuth(false); renderAll(); tgLoad(); });
+    }).then(function () { Auth.ready = true; Auth.last = Auth.fresh ? '' : JSON.stringify(getDoc()); setStat('saved'); showAuth(false); renderAll(); tgLoad(); });
   }
   function isolate(on) { Array.prototype.forEach.call(document.body.children, function (c) { if (c.id !== 'auth' && c.tagName !== 'SCRIPT') { if (on) c.setAttribute('inert', ''); else c.removeAttribute('inert'); } }); }
   function showAuth(on, msg, ok) {
@@ -2685,7 +2792,7 @@
     else if (Auth.tgErr) h += '<p class="sub">' + tx('Chưa tải được trạng thái Telegram. Hãy chắc chắn đã chạy file telegram.sql trong Supabase.', 'Could not load Telegram status. Make sure telegram.sql has been run in Supabase.') + '</p><div class="actions"><button type="button" class="btn ghost sm" data-tg="reload">' + tx('Thử lại', 'Retry') + '</button></div>';
     else if (!tg) h += '<p class="sub">' + tx('Đang tải…', 'Loading…') + '</p>';
     else if (tg.chat_id) h += '<p class="sub">✅ ' + tx('Đã kết nối Telegram.', 'Telegram is connected.') + '</p>' +
-      '<ul class="sub tglist"><li>' + tx('Việc có giờ: nhắc trước giờ bạn đã chọn.', 'Timed tasks: a reminder before the time you chose.') + '</li><li>' + tx('Mỗi sáng 8:00: danh sách việc hạn hôm nay, quá hạn và chưa có ngày, nhắc lại mỗi ngày đến khi xong.', 'Every morning at 8:00: tasks due today, overdue and undated, repeated daily until done.') + '</li><li>' + tx('Thói quen: nhắc đúng giờ (thói quen theo giờ nhắc trước 10 phút), bỏ qua nếu đã ghi hôm nay.', 'Habits: reminded at the set time (timed habits 10 minutes before), skipped if already logged today.') + '</li></ul>' +
+      '<ul class="sub tglist"><li>' + tx('Việc có giờ: nhắc trước giờ bạn đã chọn.', 'Timed tasks: a reminder before the time you chose.') + '</li><li>' + tx('Mỗi ngày vào giờ bắt đầu ngày bạn đặt (hôm nay là ' + startOf(todayK) + '): danh sách việc hạn hôm nay, quá hạn và chưa có ngày, nhắc lại mỗi ngày đến khi xong.', 'Every day at your start-of-day time (today it is ' + startOf(todayK) + '): tasks due today, overdue and undated, repeated daily until done.') + '</li><li>' + tx('Thói quen: nhắc đúng giờ (thói quen theo giờ nhắc trước 10 phút), bỏ qua nếu đã ghi hôm nay.', 'Habits: reminded at the set time (timed habits 10 minutes before), skipped if already logged today.') + '</li></ul>' +
       '<div class="actions"><button type="button" class="btn ghost sm" data-tg="off">' + tx('Ngắt kết nối', 'Disconnect') + '</button></div>';
     else if (tg.code) h += '<ol class="sub tglist"><li>' + tx('Bấm nút bên dưới để mở Telegram.', 'Press the button below to open Telegram.') + '</li><li>' + tx('Trong Telegram bấm Start (Bắt đầu).', 'In Telegram, press Start.') + '</li><li>' + tx('Quay lại đây, trạng thái sẽ tự chuyển sang đã kết nối.', 'Come back here, the status will switch to connected by itself.') + '</li></ol>' +
       '<div class="actions"><a class="btn" target="_blank" rel="noopener" href="https://t.me/' + esc(TG_BOT) + '?start=' + esc(tg.code) + '">' + tx('Mở Telegram', 'Open Telegram') + '</a><button type="button" class="btn ghost sm" data-tg="on">' + tx('Tạo mã mới', 'New code') + '</button></div>';
