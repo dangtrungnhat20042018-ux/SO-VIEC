@@ -552,7 +552,15 @@
   .dsrow input, .dsd input { padding: 6px 8px; font-family: var(--f-mono); }
   .dsgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; }
   .dsd { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--ink-3); }
-  /* Auth + toast (real mode) */
+  /* timer end alerts */
+  .alrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center; font-size: 13px; color: var(--ink-3); }
+  .alrow .chipb { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); font-size: 13px; cursor: pointer; }
+  .alrow .chipb[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-ink); color: var(--on-accent); font-weight: 600; }
+  #endBanner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 160; display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); padding: 12px 16px; border-radius: 14px; background: var(--accent); color: var(--on-accent); box-shadow: 0 10px 30px rgba(0,0,0,.22); font-size: 14px; }
+  #endBanner[hidden] { display: none !important; }
+  #endBanner b { display: block; font-size: 15px; }
+  #endBanner button { border: 1px solid color-mix(in srgb, var(--on-accent) 40%, transparent); background: transparent; color: inherit; border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.scopebox{display:grid;gap:8px}.scopebox h3{margin:0 0 2px;font-size:14px}.scopeb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;white-space:normal;height:auto;padding:10px 12px}.scopeb span{font-size:12px;opacity:.75;font-weight:400}.scopeb:disabled{opacity:.45;cursor:not-allowed}  /* Auth + toast (real mode) */
   #auth { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: var(--bg); overflow: auto; }
   #auth[hidden] { display: none !important; }
   .authcard { width: min(100%, 400px); padding: 24px 22px; display: flex; flex-direction: column; gap: 14px; }
@@ -759,7 +767,7 @@
   var seq = 1, sseq = 1;
   function subs(titles, doneCount) { return titles.map(function (t, i) { return { id: sseq++, title: t, done: i < (doneCount || 0) }; }); }
   function newTask(o) {
-    return { id: seq++, title: o.title, folder: o.folder === undefined ? null : o.folder, date: o.date || null, time: o.time || '', prio: o.prio || 'none', done: false, doneDate: null, repeat: '', rdays: null, rweeks: 1, rmdays: null, rmonths: 1, color: null, ranchor: null, nextId: null, note: '', created: o.created || todayK, pct: 0, subs: o.subs || [], lead: 15, nag: true };
+    return { id: seq++, title: o.title, folder: o.folder === undefined ? null : o.folder, date: o.date || null, time: o.time || '', prio: o.prio || 'none', done: false, doneDate: null, repeat: '', rdays: null, rweeks: 1, rmdays: null, rmonths: 1, color: null, ranchor: null, nextId: null, sid: null, occ: null, note: '', created: o.created || todayK, pct: 0, subs: o.subs || [], lead: 15, nag: true };
   }
   function T(title, folder, off, time, prio, extra) {
     var t = newTask({ title: title, folder: folder, date: off === null ? null : plus(off), time: time, prio: prio });
@@ -870,7 +878,7 @@
     view: 'tasks', tview: 'list', folder: 'all', sel: 1, day: todayK, wk: mondayOf(todayK), showH: true,
     month: new Date(today.getFullYear(), today.getMonth(), 1),
     collapsed: {}, fedit: null, ffocus: false, fdel: null,
-    hweek: 0, hdel: null, hlog: null, hedit: null, tedit: null, tdel: null, moodOpen: false, moodDate: todayK, moodScore: 0, moodNote: '', rep: { unit: 'week', off: 0 }
+    hweek: 0, hdel: null, hlog: null, hedit: null, tedit: null, tdel: null, scope: null, moodOpen: false, moodDate: todayK, moodScore: 0, moodNote: '', rep: { unit: 'week', off: 0 }
   };
   var timer = { mode: 'work', kind: 'work', running: false, endAt: 0, left: 25 * 60000, total: 25 * 60000, startedAt: null, task: 1, habit: null, idx: 0, plan: [], note: '', cfg: { type: 'std', work: 25, short: 5, long: 30, sets: 4, every: 4, steps: [{ k: 'work', m: 25 }, { k: 'short', m: 5 }, { k: 'work', m: 25 }, { k: 'short', m: 5 }, { k: 'work', m: 25 }, { k: 'long', m: 15 }] } };
   var CIRC = 603.19;
@@ -897,7 +905,7 @@
   function isLate(t) { return !t.done && t.date && t.date < todayK; }
   function openIn(folderId) {
     var ids = subtree(folderId);
-    return tasks.filter(function (t) { return !t.done && t.folder !== null && ids.indexOf(t.folder) >= 0; }).length;
+    return tasks.filter(function (t) { return !t.done && inList(t) && t.folder !== null && ids.indexOf(t.folder) >= 0; }).length;
   }
   function taskMin(id) {
     var m = 0, n = 0;
@@ -909,7 +917,7 @@
   function renderHeader() {
     var d = new Date();
     $('todayTitle').textContent = WDL[d.getDay()] + ', ' + d.getDate() + ' tháng ' + (d.getMonth() + 1);
-    var open = tasks.filter(function (t) { return !t.done; });
+    var open = tasks.filter(function (t) { return !t.done && inList(t); });
     var td = open.filter(function (t) { return t.date === todayK; }).length;
     var late = open.filter(isLate).length;
     var hs = habits.filter(function (h) { return sched(h, today); });
@@ -922,7 +930,7 @@
     var hd = hs.filter(function (h) { return h.log[todayK]; }).length;
     $('vnav').innerHTML = items.map(function (it) {
       var n = '';
-      if (it[0] === 'tasks') n = '<span class="n">' + tasks.filter(function (t) { return !t.done; }).length + '</span>';
+      if (it[0] === 'tasks') n = '<span class="n">' + tasks.filter(function (t) { return !t.done && inList(t); }).length + '</span>';
       if (it[0] === 'focus') n = '<span class="n" id="navFocus"></span>';
       if (it[0] === 'habits') n = '<span class="n">' + hd + '/' + hs.length + '</span>';
       return '<button type="button" class="vbtn" data-view="' + it[0] + '" aria-current="' + (state.view === it[0]) + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[it[0]] + '</svg>' + it[1] + n + '</button>';
@@ -1103,12 +1111,12 @@
       due + '</li>';
   }
   function renderCrumb() {
-    var open = visible().filter(function (t) { return !t.done; }).length;
+    var open = visible().filter(function (t) { return !t.done && inList(t); }).length;
     if (state.folder === 'all') { $('crumb').innerHTML = '<h2>Tất cả việc</h2><span>' + open + ' việc đang mở</span>'; return; }
     $('crumb').innerHTML = '<h2>' + fPath(state.folder).map(esc).join(' › ') + '</h2><span>' + open + ' việc đang mở' + (kids(state.folder).length ? ', gồm cả thư mục con' : '') + '</span>';
   }
   function renderList() {
-    var v = visible().slice().sort(cmp);
+    var v = visible().filter(inList).sort(cmp);
     var open = v.filter(function (t) { return !t.done; });
     var groups = [
       { name: 'Quá hạn', cls: 'over', items: open.filter(isLate) },
@@ -1132,6 +1140,7 @@
     $('monthTitle').innerHTML = 'Tháng ' + (m + 1) + ' <span>' + y + '</span>';
     var first = new Date(y, m, 1), offset = (first.getDay() + 6) % 7, dim = new Date(y, m + 1, 0).getDate();
     var total = Math.ceil((offset + dim) / 7) * 7;
+    ensureSeries(key(new Date(y, m, 1 - offset + total - 1)));
     var vis = visible().filter(function (t) { return t.date; });
     var html = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map(function (d) { return '<div class="dow">' + d + '</div>'; }).join('');
     for (var i = 0; i < total; i++) {
@@ -1175,6 +1184,7 @@
   function renderWeek() {
     var mon = parse(state.wk), last = new Date(mon); last.setDate(last.getDate() + 6);
     $('weekTitle').innerHTML = dm(mon) + ' – ' + dm(last) + ' <span>' + last.getFullYear() + '</span>';
+    ensureSeries(key(last));
     var vis = visible().filter(function (t) { return t.date; }), html = '';
     for (var i = 0; i < 7; i++) {
       var d = new Date(mon); d.setDate(d.getDate() + i);
@@ -1203,7 +1213,7 @@
     if (t.subs.length) return Math.round(subDone(t) / t.subs.length * 100);
     return t.pct || 0;
   }
-  /* ---------- Repeating tasks: finishing one creates the next occurrence ---------- */
+  /* ---------- Repeating tasks: a series keeps real occurrences so they show in every view ---------- */
   function mondayOf(k) { return addDays(k, -((parse(k).getDay() + 6) % 7)); }
   function weeksBetween(a, b) { return Math.round((parse(b) - parse(a)) / (7 * 864e5)); }
   function monthsBetween(a, b) { var x = parse(a), y = parse(b); return (y.getFullYear() - x.getFullYear()) * 12 + y.getMonth() - x.getMonth(); }
@@ -1225,46 +1235,169 @@
     return sp.days.some(function (x) { return (x === 0 ? last : Math.min(x, last)) === d.getDate(); });
   }
   function nextOccur(sp, afterK, anchor) { for (var i = 1; i <= 800; i++) { var k = addDays(afterK, i); if (occursOn(sp, k, anchor)) return k; } return null; }
-  function spawnNext(t) {
-    var sp = repSpec(t); if (!sp || t.nextId) return;
-    var dd = t.doneDate || todayK, base = t.date && t.date > dd ? t.date : dd, anchor = t.ranchor || t.date || base;
-    var k = nextOccur(sp, base, anchor), g = 0;
-    while (k && k < todayK && g++ < 800) k = nextOccur(sp, k, anchor);
-    if (!k) return;
-    var n = newTask({ title: t.title, folder: t.folder, date: k, time: t.time, prio: t.prio });
-    ['note', 'color', 'repeat', 'rdays', 'rweeks', 'rmdays', 'rmonths', 'lead', 'nag'].forEach(function (f) { n[f] = t[f]; });
-    n.ranchor = anchor; n.subs = t.subs.map(function (x) { return { id: sseq++, title: x.title, done: false }; });
-    tasks.push(n); t.nextId = n.id;
+  var series = [], sqseq = 1, pickMap = null;
+  var PATF = ['repeat', 'rdays', 'rweeks', 'rmdays', 'rmonths'], TPLF = ['title', 'folder', 'time', 'prio', 'color', 'note', 'lead', 'nag'];
+  function patOf(t) { var o = {}; PATF.forEach(function (f) { o[f] = t[f]; }); return o; }
+  function patSig(p) { return JSON.stringify([p.repeat || '', p.rdays || null, p.rdays ? p.rweeks : 1, p.rmdays || null, p.rmdays ? p.rmonths : 1]); }
+  function tplOf(t) { var o = { subs: t.subs.map(function (x) { return x.title; }) }; TPLF.forEach(function (f) { o[f] = t[f]; }); return o; }
+  function serById(id) { return series.filter(function (x) { return x.id === id; })[0] || null; }
+  function isSer(t) { return !!(t && t.sid && serById(t.sid)); }
+  function ownProg(t) { return t.done || t.pct > 0 || t.subs.some(function (x) { return x.done; }); }
+  function detach(t) { t.sid = null; t.occ = null; t.repeat = ''; t.rdays = null; t.rweeks = 1; t.rmdays = null; t.rmonths = 1; }
+  function mkInst(s, k) {
+    var n = newTask({ title: s.tpl.title, folder: (s.tpl.folder != null && fById(s.tpl.folder)) ? s.tpl.folder : null, date: k, time: s.tpl.time, prio: s.tpl.prio });
+    ['note', 'color', 'lead', 'nag'].forEach(function (f) { n[f] = s.tpl[f]; });
+    PATF.forEach(function (f) { n[f] = s.pat[f]; });
+    n.subs = (s.tpl.subs || []).map(function (x) { return { id: sseq++, title: x, done: false }; });
+    n.sid = s.id; n.occ = k; tasks.push(n); return n;
   }
-  function unspawn(t) {
-    if (!t.nextId) return;
-    var n = tasks.filter(function (x) { return x.id === t.nextId; })[0];
-    if (n && !n.done && !(n.pct > 0) && !n.subs.some(function (x) { return x.done; })) tasks = tasks.filter(function (x) { return x.id !== n.id; });
-    t.nextId = null;
+  function makeSeries(t) {
+    var s = { id: sqseq++, start: t.date, until: null, exd: [], anchor: t.date, gen: null, tpl: tplOf(t), pat: patOf(t) };
+    t.sid = s.id; t.occ = t.date; series.push(s); pickMap = null; return s;
   }
-  function migrateRepeats() {
-    var from = plus(-45);
-    tasks.slice().forEach(function (t) {
-      if (!t.done || t.nextId || !repSpec(t) || (t.doneDate || '') < from) return;
-      var dup = tasks.some(function (o) { return !o.done && o.id !== t.id && o.title === t.title && o.folder === t.folder && (o.repeat || '') === (t.repeat || ''); });
-      if (!dup) spawnNext(t);
+  function ensureSeries(endK) {
+    var end = plus(60); if (endK && endK > end) end = endK;
+    series.forEach(function (s) {
+      var sp = repSpec(s.pat); if (!sp) return;
+      var lim = s.until && s.until < end ? s.until : end;
+      var from = s.gen ? addDays(s.gen, 1) : s.start;
+      if (from > lim) return;
+      var have = {}; tasks.forEach(function (t) { if (t.sid === s.id) have[t.occ] = 1; });
+      var k = from, g = 0;
+      while (k <= lim && g++ < 1300) {
+        if (k >= s.start && occursOn(sp, k, s.anchor) && !have[k] && s.exd.indexOf(k) < 0) mkInst(s, k);
+        k = addDays(k, 1);
+      }
+      s.gen = lim; pickMap = null;
     });
+  }
+  function repPick() {
+    if (pickMap) return pickMap;
+    var by = {}; tasks.forEach(function (t) { if (t.sid && !t.done) (by[t.sid] = by[t.sid] || []).push(t); });
+    pickMap = {};
+    Object.keys(by).forEach(function (sid) {
+      var arr = by[sid].sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+      var past = arr.filter(function (t) { return (t.date || '') <= todayK; });
+      pickMap[sid] = (past.length ? past[past.length - 1] : arr[0]).id;
+    });
+    return pickMap;
+  }
+  function inList(t) { return !t.sid || t.done || repPick()[t.sid] === t.id; }
+  function migrateSeries() {
+    var groups = {};
+    tasks.forEach(function (t) { if (t.sid || !repSpec(t) || !t.date) return; var k = t.title + '|' + t.folder + '|' + patSig(t); (groups[k] = groups[k] || []).push(t); });
+    Object.keys(groups).forEach(function (k) {
+      var arr = groups[k].sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+      var op = arr.filter(function (t) { return !t.done; });
+      if (!op.length && (arr[arr.length - 1].doneDate || arr[arr.length - 1].date) < plus(-45)) return;
+      var ref = op.length ? op[op.length - 1] : arr[arr.length - 1];
+      var maxd = arr[arr.length - 1].date, yest = addDays(todayK, -1);
+      var s = { id: sqseq++, start: arr[0].date, until: null, exd: [], anchor: ref.ranchor || ref.date, gen: maxd > yest ? maxd : yest, tpl: tplOf(ref), pat: patOf(ref) };
+      series.push(s);
+      arr.forEach(function (t) { t.sid = s.id; t.occ = t.date; t.nextId = null; });
+    });
+    pickMap = null;
+  }
+  function changedOf(t, v) {
+    var f = TPLF.filter(function (x) { return x === 'nag' ? !!v[x] !== !!t[x] : (v[x] == null ? null : v[x]) !== (t[x] == null ? null : t[x]); });
+    var o = { f: f, dateCh: (v.date || null) !== (t.date || null), patCh: patSig(v.pat) !== patSig(patOf(t)) };
+    o.any = f.length > 0 || o.dateCh || o.patCh; return o;
+  }
+  function applyScope(kind) {
+    var sc = state.scope; state.scope = null; if (!sc) return;
+    var et = taskById(sc.id), v = sc.vals; if (!et) return;
+    var s = serById(et.sid), ch = changedOf(et, v), off = !repSpec(v.pat), nd = v.date || et.date;
+    function setF(t) { ch.f.forEach(function (f) { t[f] = v[f]; }); }
+    function setPat(t) { PATF.forEach(function (f) { t[f] = v.pat[f]; }); }
+    if (kind === 'one') { setF(et); et.date = nd; }
+    else if (kind === 'all') {
+      ch.f.forEach(function (f) { s.tpl[f] = v[f]; });
+      tasks.forEach(function (t) { if (t.sid === s.id) setF(t); });
+      et.date = nd;
+      if (off) {
+        tasks = tasks.filter(function (t) { return !(t.sid === s.id && t !== et && !ownProg(t)); });
+        tasks.forEach(function (t) { if (t.sid === s.id) detach(t); });
+        series = series.filter(function (x) { return x !== s; });
+      } else if (ch.patCh) {
+        s.pat = v.pat; s.anchor = nd; et.occ = nd; if (nd < s.start) s.start = nd;
+        tasks = tasks.filter(function (t) { return !(t.sid === s.id && t !== et && !ownProg(t) && (t.date || '') >= todayK); });
+        tasks.forEach(function (t) { if (t.sid === s.id) setPat(t); });
+        s.gen = addDays(todayK, -1) < nd ? addDays(todayK, -1) : addDays(nd, -1);
+      }
+    } else {
+      var cut = et.occ, hasEarlier = tasks.some(function (t) { return t.sid === s.id && t.occ < cut; });
+      var fut = tasks.filter(function (t) { return t.sid === s.id && t.occ >= cut; });
+      var ns = { id: sqseq++, start: nd, until: s.until, exd: s.exd.filter(function (x) { return x >= cut; }), anchor: s.anchor, gen: s.gen, tpl: JSON.parse(JSON.stringify(s.tpl)), pat: s.pat };
+      ch.f.forEach(function (f) { ns.tpl[f] = v[f]; });
+      if (hasEarlier) { s.until = addDays(cut, -1); s.exd = s.exd.filter(function (x) { return x < cut; }); }
+      else series = series.filter(function (x) { return x !== s; });
+      if (off) {
+        tasks = tasks.filter(function (t) { return !(t.sid === s.id && t.occ >= cut && t !== et && !ownProg(t)); });
+        setF(et); et.date = nd; detach(et);
+      } else {
+        series.push(ns); fut.forEach(function (t) { t.sid = ns.id; });
+        if (ch.patCh || ch.dateCh) {
+          ns.pat = v.pat; ns.anchor = nd; ns.start = nd; et.occ = nd; et.date = nd;
+          tasks = tasks.filter(function (t) { return !(t.sid === ns.id && t !== et && !ownProg(t)); });
+          tasks.forEach(function (t) { if (t.sid === ns.id) setPat(t); });
+          setF(et); ns.gen = addDays(nd, -1);
+          ns.exd = [];
+        } else {
+          tasks.forEach(function (t) { if (t.sid === ns.id && (!t.done || t === et)) setF(t); });
+        }
+      }
+    }
+    pickMap = null; state.tedit = null;
+  }
+  function delScope(kind) {
+    var t = taskById(state.tdel), s = t && serById(t.sid); state.tdel = null;
+    if (!t) return;
+    if (!s) { tasks = tasks.filter(function (x) { return x !== t; }); return; }
+    if (kind === 'one') { s.exd.push(t.occ); tasks = tasks.filter(function (x) { return x !== t; }); }
+    else if (kind === 'fut') {
+      var cut = t.occ;
+      tasks = tasks.filter(function (x) { return !(x.sid === s.id && x.occ >= cut && (x === t || !ownProg(x))); });
+      if (tasks.some(function (x) { return x.sid === s.id && x.occ < cut; })) s.until = addDays(cut, -1);
+      else { series = series.filter(function (x) { return x !== s; }); tasks.forEach(function (x) { if (x.sid === s.id) detach(x); }); }
+    } else {
+      tasks = tasks.filter(function (x) { return !(x.sid === s.id && (x === t || !ownProg(x))); });
+      tasks.forEach(function (x) { if (x.sid === s.id) detach(x); });
+      series = series.filter(function (x) { return x !== s; });
+    }
+    pickMap = null;
+  }
+  function scopeBox(t) {
+    var sc = state.scope, ch = changedOf(t, sc.vals);
+    function b(k, a, bb, dis, note) { return '<button type="button" class="btn ghost scopeb" data-scope="' + k + '"' + (dis ? ' disabled' : '') + '><b>' + tx(a[0], a[1]) + '</b><span>' + tx(bb[0], bb[1]) + (note ? ' ' + tx(note[0], note[1]) : '') + '</span></button>'; }
+    return '<div class="scopebox"><h3>' + tx('Đây là việc lặp lại. Áp dụng thay đổi cho', 'This task repeats. Apply the change to') + '</h3>' +
+      b('all', ['Thay đổi tất cả', 'Change all'], ['Các lần đã qua, hiện tại và tương lai.', 'Past, present and future occurrences.']) +
+      b('one', ['Thay đổi chỉ task đó', 'Change only this one'], ['Các lần khác giữ nguyên.', 'All other occurrences stay unchanged.'], ch.patCh, ['(Không dùng khi đổi kiểu lặp.)', '(Not available when the repeat pattern changes.)']) +
+      b('fut', ['Thay đổi hiện tại và tương lai', 'Change this and future'], ['Lần này và các lần sau, các lần trước giữ nguyên.', 'This and all later occurrences, earlier ones stay.']) +
+      '<div class="actions"><button type="button" class="btn ghost sm" data-scopex="1">' + tx('Quay lại sửa', 'Back to editing') + '</button></div></div>';
+  }
+  function delScopeBox(t) {
+    function b(k, a, bb) { return '<button type="button" class="btn ghost scopeb" data-dscope="' + k + '"><b>' + tx(a[0], a[1]) + '</b><span>' + tx(bb[0], bb[1]) + '</span></button>'; }
+    return '<div class="scopebox"><h3>' + tx('Xóa việc lặp lại. Xóa', 'Delete repeating task. Delete') + '</h3>' +
+      b('one', ['Chỉ việc này', 'Only this one'], ['Các lần khác giữ nguyên.', 'Other occurrences stay.']) +
+      b('fut', ['Việc này và các lần sau', 'This and future'], ['Các lần trước giữ nguyên.', 'Earlier occurrences stay.']) +
+      b('all', ['Tất cả', 'All'], ['Mọi lần chưa xong; các lần đã xong được giữ lại.', 'Every unfinished occurrence; completed ones are kept.']) +
+      '<div class="actions"><button type="button" class="btn ghost sm" data-tdelno="1">' + tx('Giữ lại', 'Keep') + '</button></div></div>';
   }
   function syncDone(t) {
     if (!t.subs.length) return;
     var all = subDone(t) === t.subs.length;
-    if (all && !t.done) { t.done = true; t.doneDate = todayK; spawnNext(t); }
-    else if (!all && t.done) { t.done = false; t.doneDate = null; unspawn(t); }
+    if (all && !t.done) { t.done = true; t.doneDate = todayK; }
+    else if (!all && t.done) { t.done = false; t.doneDate = null; }
   }
   function setPct(t, v) {
     v = Math.max(0, Math.min(100, Math.round(v) || 0)); t.pct = v;
-    if (v === 100 && !t.done) { t.done = true; t.doneDate = todayK; spawnNext(t); }
-    else if (v < 100 && t.done) { t.done = false; t.doneDate = null; unspawn(t); }
+    if (v === 100 && !t.done) { t.done = true; t.doneDate = todayK; }
+    else if (v < 100 && t.done) { t.done = false; t.doneDate = null; }
   }
   function toggleTask(t) {
-    if (!t.done) { t.done = true; t.doneDate = todayK; t.pct = 100; t.subs.forEach(function (s) { s.done = true; }); spawnNext(t); }
+    if (!t.done) { t.done = true; t.doneDate = todayK; t.pct = 100; t.subs.forEach(function (s) { s.done = true; }); }
     else {
-      t.done = false; t.doneDate = null; unspawn(t);
+      t.done = false; t.doneDate = null;
       if (t.subs.length) t.subs[t.subs.length - 1].done = false; else if (t.pct === 100) t.pct = 90;
     }
   }
@@ -1360,11 +1493,12 @@
       '<dt>Đã tập trung</dt><dd>' + (fm.n ? fmtMin(fm.min) + ' (' + fm.n + ' phiên)' : 'Chưa có phiên nào') + '</dd></dl>' +
       (t.note ? '<p class="note">' + esc(t.note) + '</p>' : '');
     var actions;
-    if (state.tdel === t.id) actions = '<div class="delrow"><span>Xóa việc này cùng các việc con?</span><button type="button" class="mini danger" data-tdelok="' + t.id + '">Xóa</button><button type="button" class="mini" data-tdelno="1">Giữ lại</button></div>';
+    if (state.tdel === t.id && isSer(t)) actions = delScopeBox(t);
+    else if (state.tdel === t.id) actions = '<div class="delrow"><span>Xóa việc này cùng các việc con?</span><button type="button" class="mini danger" data-tdelok="' + t.id + '">Xóa</button><button type="button" class="mini" data-tdelno="1">Giữ lại</button></div>';
     else actions = '<div class="actions"><button type="button" class="btn ghost sm" data-tedit="' + t.id + '">Sửa</button><button type="button" class="btn sm" data-toggle="' + t.id + '">' + (t.done ? 'Mở lại' : 'Đánh dấu xong') + '</button>' +
       (t.done ? '' : '<button type="button" class="btn ghost sm" data-focustask="' + t.id + '">Tập trung vào việc này</button>') +
       '<button type="button" class="btn ghost sm" data-tdel="' + t.id + '">Xóa</button></div>';
-    $('detail').innerHTML = '<div class="card dcard">' + st + '<h2>' + esc(t.title) + '</h2>' + progBlock(t) + subsBlock(t) + (editing ? editBlock(t) : info) + (editing ? '' : actions) + '</div>' + (editing ? '' : previewHtml(t));
+    $('detail').innerHTML = '<div class="card dcard">' + st + '<h2>' + esc(t.title) + '</h2>' + progBlock(t) + subsBlock(t) + (editing ? (state.scope && state.scope.id === t.id ? scopeBox(t) : editBlock(t)) : info) + (editing ? '' : actions) + '</div>' + (editing ? '' : previewHtml(t));
   }
 
   /* ---------- Focus (Pomodoro: standard or custom plan) ---------- */
@@ -1440,9 +1574,11 @@
   }
   function finishTimer() {
     var mins = Math.round(timer.total / 60000);
+    var fin = timer.kind;
     if (timer.mode === 'work') addSession(mins);
     goNext(timer.mode === 'work' ? mins : 0);
     renderAll();
+    signalEnd(fin);
   }
   function skipTimer() {
     if (timer.mode === 'work') {
@@ -1456,6 +1592,7 @@
     var el = $('tmTime'); if (el) el.textContent = txt;
     var ring = $('tmRing'); if (ring) ring.style.strokeDashoffset = String(CIRC * (1 - timer.left / timer.total));
     var b = $('navFocus'); if (b) b.textContent = timer.running ? txt : '';
+    if (!flashTm) { var tt = timer.running ? txt + ' · ' + BASE_TITLE : BASE_TITLE; if (document.title !== tt) document.title = tt; }
   }
   setInterval(function () {
     if (timer.running) {
@@ -1506,8 +1643,15 @@
       '<div><button type="button" class="btn ghost sm" data-pm-reset="1">' + tx('Dùng lại mẫu 25 + 5', 'Reset to 25 + 5') + '</button></div></div>';
   }
 
+  function alertsRow() {
+    var a = timer.alerts, chip = function (k, label) { return '<button type="button" class="chipb" data-al="' + k + '" aria-pressed="' + !!a[k] + '">' + label + '</button>'; };
+    var msg = a.notif ? notifStatus() : '';
+    return '<div class="alrow" role="group" aria-label="' + esc(tx('Báo khi hết giờ', 'Alert when time is up')) + '"><span>' + tx('Báo khi hết giờ:', 'Alert when time is up:') + '</span>' +
+      chip('sound', tx('Âm thanh', 'Sound')) + chip('notif', tx('Thông báo', 'Notification')) + (REAL ? chip('tg', 'Telegram') : '') +
+      '<button type="button" class="chipb" data-al="test">' + tx('Thử ngay', 'Test now') + '</button></div>' + (msg ? '<p class="pmhint">' + msg + '</p>' : '');
+  }
   function renderFocus() {
-    var open = tasks.filter(function (t) { return !t.done; }).sort(cmp);
+    var open = tasks.filter(function (t) { return !t.done && inList(t); }).sort(cmp);
     var th = habits.filter(function (h) { return h.type === 'time'; });
     var opts = '<option value="">Không gắn việc nào</option><optgroup label="' + esc(tx('Việc', 'Tasks')) + '">' + open.map(function (t) {
       return '<option value="t' + t.id + '"' + (!timer.habit && timer.task === t.id ? ' selected' : '') + '>' + esc(t.title) + '</option>';
@@ -1531,7 +1675,7 @@
       '<div class="card timer">' +
         '<p class="tmmode' + (brk ? ' brk' : '') + '">' + kindName(timer.kind) + ' · ' + setCounter() + '</p>' +
         '<div class="ringwrap"><svg viewBox="0 0 220 220" aria-hidden="true"><circle class="rtrack" cx="110" cy="110" r="96"/><circle class="rprog' + (brk ? ' brk' : '') + '" id="tmRing" cx="110" cy="110" r="96" transform="rotate(-90 110 110)"/></svg><div class="tmnum" id="tmTime" role="timer" aria-label="Thời gian còn lại"></div></div>' +
-        '<div class="tmbtns">' + btns + '</div>' + planStrip() +
+        '<div class="tmbtns">' + btns + '</div>' + planStrip() + alertsRow() +
         '<div class="tmtask"><label class="label" for="tmTask">Đang tập trung vào</label><select id="tmTask">' + opts + '</select></div>' +
         '<button type="button" class="btn ghost sm" data-pm-toggle="1" aria-expanded="' + !!state.pmOpen + '">' + (state.pmOpen ? tx('Ẩn tùy chỉnh', 'Hide settings') : tx('Tùy chỉnh bộ hẹn giờ', 'Customize timer')) + '</button>' +
         (state.pmOpen ? pmPanel() : '') +
@@ -1541,6 +1685,56 @@
         (list ? '<ul>' + list + '</ul>' : '<p class="empty">Chưa có phiên nào hôm nay. Chọn một việc rồi bấm Bắt đầu.</p>') + '</div>' +
       '</div>';
     paintTimer();
+  }
+  var REAL = false;
+  function touch() {} // replaced by the real implementation in the account build
+  timer.alerts = { sound: true, notif: true, tg: false };
+  (function () { try { var a = JSON.parse(localStorage.getItem('soviec-alerts') || 'null'); if (a) { timer.alerts.sound = a.sound !== false; timer.alerts.notif = a.notif !== false; timer.alerts.tg = a.tg === true; } } catch (err) {} })();
+  function alertsSave() { try { localStorage.setItem('soviec-alerts', JSON.stringify(timer.alerts)); } catch (err) {} touch(); }
+  var actx = null, flashTm = null, BASE_TITLE = 'Sổ Việc';
+  function audioUnlock() {
+    try { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; if (!actx) actx = new AC(); if (actx.state === 'suspended') actx.resume(); } catch (err) {}
+  }
+  function chime(kind) {
+    if (!actx) return;
+    var seq1 = kind === 'work' ? [659.25, 783.99, 1046.5] : [783.99, 659.25, 523.25];
+    [0, 1.4].forEach(function (off) {
+      seq1.forEach(function (f, i) {
+        var t0 = actx.currentTime + off + i * 0.28, o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.28, t0 + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+        o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + 0.55);
+      });
+    });
+  }
+  function askNotif() {
+    try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (err) {}
+  }
+  function notifStatus() {
+    if (!('Notification' in window)) return tx('Trình duyệt này không hỗ trợ thông báo.', 'This browser does not support notifications.');
+    if (Notification.permission === 'denied') return tx('Thông báo đang bị chặn. Hãy bật lại trong cài đặt trang web của trình duyệt.', 'Notifications are blocked. Turn them back on in your browser site settings.');
+    return '';
+  }
+  function showBanner(title, body) {
+    var b = $('endBanner');
+    if (!b) { b = document.createElement('div'); b.id = 'endBanner'; b.setAttribute('role', 'alert'); document.body.appendChild(b); }
+    b.hidden = false; b.innerHTML = '<div><b>' + esc(title) + '</b>' + esc(body) + '</div><button type="button" data-al="dismiss">' + tx('Đóng', 'Dismiss') + '</button>';
+    clearTimeout(showBanner.tm); showBanner.tm = setTimeout(function () { b.hidden = true; }, 20000);
+  }
+  function stopFlash() { if (flashTm) { clearInterval(flashTm); flashTm = null; document.title = BASE_TITLE; } }
+  function startFlash(msg) {
+    stopFlash(); var on = false;
+    flashTm = setInterval(function () { on = !on; document.title = on ? '⏰ ' + msg : BASE_TITLE; }, 900);
+  }
+  window.addEventListener('focus', stopFlash);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') stopFlash(); });
+  function signalEnd(fin) {
+    var title = fin === 'work' ? tx('Hết giờ tập trung', 'Focus time is up') : fin === 'long' ? tx('Hết giờ nghỉ dài', 'Long break is over') : tx('Hết giờ nghỉ', 'Break is over');
+    if (timer.alerts.sound) chime(fin);
+    try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (err) {}
+    if (timer.alerts.notif) { try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body: timer.note, tag: 'soviec-timer' }); } catch (err) {} }
+    showBanner(title, timer.note);
+    if (document.hidden || !document.hasFocus()) startFlash(title);
   }
   cfgLoad(); rebuildPlan(true);
 
@@ -1894,7 +2088,7 @@
     return { unit: unit, off: off, from: s, to: e, label: label };
   }
   function allRecs() {
-    var r = tasks.map(function (t) { return { due: t.date, done: t.doneDate, root: t.folder == null ? null : rootIdOfFolder(t.folder) }; });
+    var r = tasks.filter(inList).map(function (t) { return { due: t.date, done: t.doneDate, root: t.folder == null ? null : rootIdOfFolder(t.folder) }; });
     return r.concat(archive);
   }
   function metrics(r) {
@@ -2049,6 +2243,7 @@
 
   /* ---------- Render all ---------- */
   function renderAll() {
+    pickMap = null; ensureSeries();
     renderHeader(); renderVNav(); renderTree();
     var v = state.view;
     $('vTasks').hidden = v !== 'tasks';
@@ -2100,8 +2295,11 @@
       if (tk3) { tk3.subs = tk3.subs.filter(function (s) { return s.id !== +q2[1]; }); syncDone(tk3); }
       renderAll(); return;
     }
-    if ((el = e.target.closest('[data-tedit]'))) { state.tedit = +el.getAttribute('data-tedit'); state.tdel = null; renderDetail(); return; }
-    if (e.target.closest('[data-tcancel]')) { state.tedit = null; renderDetail(); return; }
+    if ((el = e.target.closest('[data-tedit]'))) { state.tedit = +el.getAttribute('data-tedit'); state.tdel = null; state.scope = null; renderDetail(); return; }
+    if (e.target.closest('[data-tcancel]')) { state.tedit = null; state.scope = null; renderDetail(); return; }
+    if ((el = e.target.closest('[data-scope]'))) { if (!el.disabled) { applyScope(el.getAttribute('data-scope')); renderAll(); } return; }
+    if (e.target.closest('[data-scopex]')) { state.scope = null; renderDetail(); return; }
+    if ((el = e.target.closest('[data-dscope]'))) { delScope(el.getAttribute('data-dscope')); state.sel = null; state.tedit = null; renderAll(); return; }
     if ((el = e.target.closest('[data-tdel]'))) { state.tdel = +el.getAttribute('data-tdel'); renderDetail(); return; }
     if (e.target.closest('[data-tdelno]')) { state.tdel = null; renderDetail(); return; }
     if ((el = e.target.closest('[data-tdelok]'))) {
@@ -2148,6 +2346,20 @@
       renderAll(); return;
     }
     if ((el = e.target.closest('[data-color]'))) { setAccent(el.getAttribute('data-color'), true); return; }
+    if ((el = e.target.closest('[data-al]'))) {
+      var ak2 = el.getAttribute('data-al');
+      audioUnlock();
+      if (ak2 === 'dismiss') { var bn = $('endBanner'); if (bn) bn.hidden = true; return; }
+      if (ak2 === 'test') {
+        askNotif(); if (timer.alerts.sound) chime('work');
+        if (timer.alerts.notif && 'Notification' in window && Notification.permission === 'granted') { try { new Notification(tx('Thử thông báo', 'Test notification'), { body: tx('Bạn sẽ nhận thông báo như thế này khi hết giờ.', 'You will get a notification like this when time is up.'), tag: 'soviec-timer' }); } catch (err) {} }
+        showBanner(tx('Thử thông báo', 'Test notification'), tx('Bạn sẽ nhận thông báo như thế này khi hết giờ.', 'You will get a notification like this when time is up.'));
+        return;
+      }
+      timer.alerts[ak2] = !timer.alerts[ak2];
+      if (ak2 === 'notif' && timer.alerts.notif) askNotif();
+      alertsSave(); renderFocus(); return;
+    }
     if (e.target.closest('[data-pm-toggle]')) { state.pmOpen = !state.pmOpen; renderFocus(); return; }
     if ((el = e.target.closest('[data-pm-type]'))) { timer.cfg.type = el.getAttribute('data-pm-type'); cfgSave(); rebuildPlan(); renderFocus(); return; }
     if ((el = e.target.closest('[data-pm-add]'))) {
@@ -2167,7 +2379,7 @@
     }
     if ((el = e.target.closest('[data-tm]'))) {
       var a2 = el.getAttribute('data-tm');
-      if (a2 === 'start') startTimer(); else if (a2 === 'pause') pauseTimer(); else if (a2 === 'reset') resetTimer(); else if (a2 === 'skip') skipTimer(); else if (a2 === 'restart') { restartPlan(); }
+      if (a2 === 'start') { audioUnlock(); if (timer.alerts.notif) askNotif(); startTimer(); } else if (a2 === 'pause') pauseTimer(); else if (a2 === 'reset') resetTimer(); else if (a2 === 'skip') skipTimer(); else if (a2 === 'restart') { restartPlan(); }
       renderAll(); return;
     }
     if (e.target.closest('#hToggle')) { state.showH = !state.showH; renderAll(); return; }
@@ -2300,7 +2512,7 @@
       var lines = $('addSubs').value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
       var t = newTask({ title: title, folder: $('addList').value ? +$('addList').value : null, date: $('addDate').value || null, time: $('addTime').value || '', prio: $('addPrio').value, subs: subs(lines, 0) });
       var rr = readRep('add'); t.repeat = rr.repeat; t.rdays = rr.rdays; t.rweeks = rr.rweeks; t.rmdays = rr.rmdays; t.rmonths = rr.rmonths; t.color = readColor('add');
-      tasks.push(t); state.sel = t.id; state.tedit = null; state.tdel = null;
+      tasks.push(t); if (repSpec(t)) { if (!t.date) t.date = todayK; makeSeries(t); } state.sel = t.id; state.tedit = null; state.tdel = null;
       if (t.date) { state.day = t.date; var d = parse(t.date); state.month = new Date(d.getFullYear(), d.getMonth(), 1); }
       $('addTitle').value = ''; $('addTime').value = ''; $('addSubs').value = ''; $('addPrio').value = 'none'; buildAddExtra();
       renderAll();
@@ -2308,9 +2520,15 @@
       e.preventDefault();
       var et = taskById(state.sel), nt = $('edTitle').value.trim();
       if (!et || !nt) return;
-      et.title = nt; if (($('edDate').value || null) !== et.date) et.ranchor = null; et.date = $('edDate').value || null; et.time = $('edTime').value || '';
-      et.folder = $('edFolder').value ? +$('edFolder').value : null; et.prio = $('edPrio').value;
-      var er = readRep('ed'); et.repeat = er.repeat; et.rdays = er.rdays; et.rweeks = er.rweeks; et.rmdays = er.rmdays; et.rmonths = er.rmonths; et.color = readColor('ed'); et.lead = +$('edLead').value; et.nag = $('edNag').checked; et.note = $('edNote').value.trim();
+      var vals = { title: nt, date: $('edDate').value || null, time: $('edTime').value || '', folder: $('edFolder').value ? +$('edFolder').value : null, prio: $('edPrio').value, color: readColor('ed'), lead: +$('edLead').value, nag: $('edNag').checked, note: $('edNote').value.trim(), pat: readRep('ed') };
+      if (isSer(et)) {
+        if (!vals.date) vals.date = et.date;
+        if (!changedOf(et, vals).any) { state.tedit = null; renderAll(); return; }
+        state.scope = { id: et.id, vals: vals }; renderDetail(); return;
+      }
+      et.title = vals.title; et.date = vals.date; et.time = vals.time; et.folder = vals.folder; et.prio = vals.prio; et.color = vals.color; et.lead = vals.lead; et.nag = vals.nag; et.note = vals.note;
+      PATF.forEach(function (f) { et[f] = vals.pat[f]; });
+      if (repSpec(et)) { if (!et.date) et.date = todayK; makeSeries(et); }
       state.tedit = null;
       if (et.date) { state.day = et.date; var d2 = parse(et.date); state.month = new Date(d2.getFullYear(), d2.getMonth(), 1); }
       renderAll();
@@ -2485,6 +2703,7 @@
     "Chưa có dữ liệu trong kỳ này.": "No data in this period yet.",
     "Thói quen trong kỳ": "Habits in this period",
     "Đổi màu": "Change color",
+    "Đóng": "Dismiss",
     "Theo thư mục": "Follow folder",
     "Lặp lại và màu": "Repeat and color",
     "Nhận xét nhanh": "Quick insights",
@@ -2596,6 +2815,7 @@
 
   /* ---------- Real mode: account + cloud save (Supabase over plain fetch) ---------- */
   var SB_URL = 'https://mkbbuaudizwvmbhgkjeh.supabase.co', SB_KEY = 'sb_publishable_Qe5-eyBnBStGRdCzLv5QRg_Ju0vZdA1';
+  REAL = true;
   var Auth = { sess: null, rev: 0, ready: false, last: '', tm: null, saving: false, again: false, dirty: false, stat: 'saved', mode: 'in' };
   function sbLoadSess() { try { return JSON.parse(localStorage.getItem('soviec-session') || 'null'); } catch (err) { return null; } }
   function sbSaveSess(s) { Auth.sess = s; try { if (s) localStorage.setItem('soviec-session', JSON.stringify(s)); else localStorage.removeItem('soviec-session'); } catch (err) {} }
@@ -2623,15 +2843,15 @@
   function maxId(a) { var m = 0; a.forEach(function (x) { if (x.id > m) m = x.id; }); return m; }
   function getDoc() {
     var acc = ''; try { acc = localStorage.getItem('soviec-accent') || ''; } catch (err) {}
-    return { v: 1, folders: folders, tasks: tasks, habits: habits, archive: archive, sessions: sessions, moods: moods,
-      seq: { f: fseq, t: seq, s: sseq, h: hseq }, migRep: true, prefs: { lang: lang, accent: acc, focus: timer.cfg, dayStart: dayStart } };
+    return { v: 1, folders: folders, tasks: tasks, series: series, habits: habits, archive: archive, sessions: sessions, moods: moods,
+      seq: { f: fseq, t: seq, s: sseq, h: hseq }, migSer: true, sqseq: sqseq, prefs: { lang: lang, accent: acc, focus: timer.cfg, dayStart: dayStart, alerts: { sound: timer.alerts.sound, notif: timer.alerts.notif, tg: timer.alerts.tg }, timerEnd: timer.running ? { at: timer.endAt, k: timer.kind, m: Math.round(timer.total / 60000) } : null } };
   }
   function starterDoc() {
     var names = ['Công việc', 'Học tập', 'Cá nhân', 'Sức khỏe'];
-    return { v: 1, migRep: true, folders: names.map(function (n, i) { return { id: i + 1, name: n, parent: null, color: ROOT_COLORS[i] }; }), tasks: [], habits: [], archive: [], sessions: [], moods: {}, seq: { f: 5, t: 1, s: 1, h: 1 }, prefs: {} };
+    return { v: 1, migSer: true, series: [], sqseq: 1, folders: names.map(function (n, i) { return { id: i + 1, name: n, parent: null, color: ROOT_COLORS[i] }; }), tasks: [], habits: [], archive: [], sessions: [], moods: {}, seq: { f: 5, t: 1, s: 1, h: 1 }, prefs: {} };
   }
   function applyDoc(d) {
-    folders = d.folders || []; tasks = d.tasks || []; habits = d.habits || []; archive = d.archive || []; sessions = d.sessions || []; moods = d.moods || {};
+    folders = d.folders || []; tasks = d.tasks || []; series = d.series || []; series.forEach(function (x) { if (!x.exd) x.exd = []; }); habits = d.habits || []; archive = d.archive || []; sessions = d.sessions || []; moods = d.moods || {};
     tasks.forEach(function (t) { if (!t.subs) t.subs = []; });
     habits.forEach(function (h) { if (!h.log) h.log = {}; });
     var q = d.seq || {};
@@ -2640,12 +2860,13 @@
     state.sel = null; state.folder = 'all'; state.fedit = null; state.fdel = null; state.tedit = null; state.tdel = null; state.hedit = null; state.hdel = null; state.hlog = null; state.moodOpen = false;
     timer.task = null; timer.habit = null;
     var p = d.prefs || {};
+    if (p.alerts) { timer.alerts.sound = p.alerts.sound !== false; timer.alerts.notif = p.alerts.notif !== false; timer.alerts.tg = p.alerts.tg === true; try { localStorage.setItem('soviec-alerts', JSON.stringify(timer.alerts)); } catch (err) {} }
     var ds = p.dayStart;
     dayStart = { def: '08:00', wd: {}, today: null };
     if (ds && /^\d\d:\d\d$/.test(ds.def || '')) dayStart.def = ds.def;
     if (ds && ds.wd) for (var wk in ds.wd) if (/^[0-6]$/.test(wk) && /^\d\d:\d\d$/.test(ds.wd[wk])) dayStart.wd[wk] = ds.wd[wk];
     if (ds && ds.today && ds.today.date === todayK && /^\d\d:\d\d$/.test(ds.today.time || '')) dayStart.today = ds.today;
-    if (!d.migRep) migrateRepeats();
+    sqseq = Math.max(d.sqseq || 1, maxId(series) + 1); state.scope = null; pickMap = null; migrateSeries();
     if (p.focus && Array.isArray(p.focus.steps) && p.focus.steps.length && (p.focus.type === 'std' || p.focus.type === 'custom')) { timer.cfg = p.focus; cfgSave(); }
     rebuildPlan(!timer.running);
     if (['#7FD8BE', '#8DB8FF', '#FF9E9A', '#FFD479', '#B79CFF'].indexOf(p.accent) >= 0) setAccent(p.accent, true);
@@ -2693,7 +2914,7 @@
 
   function loadRemote() {
     return remoteLatest().then(function (row) {
-      if (row) { Auth.rev = row.rev; applyDoc(row.data || starterDoc()); Auth.fresh = !(row.data && row.data.migRep); return; }
+      if (row) { Auth.rev = row.rev; applyDoc(row.data || starterDoc()); Auth.fresh = !(row.data && row.data.migSer); return; }
       var d = starterDoc(); applyDoc(d); Auth.rev = 1;
       return sbData('/rest/v1/app_state', { method: 'POST', prefer: 'return=minimal', body: { data: d, rev: 1 } });
     }).then(function () { Auth.ready = true; Auth.last = Auth.fresh ? '' : JSON.stringify(getDoc()); setStat('saved'); showAuth(false); renderAll(); tgLoad(); });
@@ -2823,6 +3044,7 @@
   buildDayRows();
   resetHForm();
   buildAddExtra();
+  migrateSeries();
   renderAll();
   observe();
   var savedLang = null;
